@@ -4,7 +4,7 @@ echo Road Damage Detection System - Startup
 echo ========================================
 echo.
 
-echo [1/4] Checking Python...
+echo [1/3] Checking Python...
 python --version
 if errorlevel 1 (
     echo ERROR: Python not found! Please install Python 3.8+
@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 echo.
 
-echo [2/4] Checking Node.js...
+echo [2/3] Checking Node.js...
 node --version
 if errorlevel 1 (
     echo ERROR: Node.js not found! Please install Node.js 14+
@@ -22,40 +22,21 @@ if errorlevel 1 (
 )
 echo.
 
-echo [3/4] Setting up Backend...
+echo [3/3] Activating Python Virtual Environment...
 cd backend
 if not exist venv (
-    echo Creating Python virtual environment...
-    python -m venv venv
-)
-call venv\Scripts\activate
-echo Installing Python dependencies...
-pip install --upgrade pip
-pip install -r requirements.txt
-if errorlevel 1 (
-    echo ERROR: Failed to install Python dependencies!
+    echo ERROR: Python venv not found!
+    echo Please run: install_dependencies.bat first
+    cd ..
     pause
     exit /b 1
 )
-cd ..
-echo.
-
-echo [4/4] Setting up Frontend...
-cd frontend
-if not exist node_modules (
-    echo Installing Node.js dependencies...
-    call npm install
-    if errorlevel 1 (
-        echo ERROR: Failed to install Node.js dependencies!
-        pause
-        exit /b 1
-    )
-)
+call venv\Scripts\activate
 cd ..
 echo.
 
 echo ========================================
-echo Setup Complete! Starting Servers...
+echo Starting Servers...
 echo ========================================
 echo.
 
