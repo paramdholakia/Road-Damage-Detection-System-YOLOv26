@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import axios from 'axios';
 import { useDropzone } from 'react-dropzone';
@@ -26,6 +26,28 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [fileType, setFileType] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [sessionId, setSessionId] = useState(null);
+  const [modelStats, setModelStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
+
+  useEffect(() => {
+    const fetchModelStats = async () => {
+      try {
+        setStatsLoading(true);
+        const response = await axios.get('/api/stats');
+        setModelStats(response.data);
+        setStatsError(null);
+      } catch (err) {
+        setStatsError('Unable to load model technical details');
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchModelStats();
+  }, []);
 
   const onDrop = useCallback((acceptedFiles) => {
     const selectedFile = acceptedFiles[0];
@@ -99,9 +121,36 @@ function App() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setProgress(0);
+
+    // Generate a session ID for progress tracking
+    const tempSessionId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(tempSessionId);
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('session_id', tempSessionId);
+    
+    // Start polling for progress if it's a video
+    let progressInterval = null;
+    if (fileType === 'video') {
+      progressInterval = setInterval(async () => {
+        try {
+          const response = await axios.get(`/api/progress/${tempSessionId}`);
+          const progressData = response.data;
+          
+          if (progressData.status === 'processing') {
+            setProgress(progressData.percentage || 0);
+          } else if (progressData.status === 'complete') {
+            setProgress(100);
+            clearInterval(progressInterval);
+          }
+        } catch (err) {
+          // Progress endpoint may not exist yet, ignore errors
+          console.debug('Progress not available yet');
+        }
+      }, 500); // Poll every 500ms
+    }
 
     try {
       const response = await axios.post('/api/predict', formData, {
@@ -111,11 +160,15 @@ function App() {
       });
 
       setResult(response.data);
+      setProgress(100);
     } catch (err) {
       setError(err.response?.data?.error || 'An error occurred during detection');
       console.error('Error:', err);
     } finally {
       setLoading(false);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
     }
   };
 
@@ -125,6 +178,8 @@ function App() {
     setResult(null);
     setError(null);
     setFileType(null);
+    setProgress(0);
+    setSessionId(null);
   };
 
   const formatFileSize = (bytes) => {
@@ -134,6 +189,17 @@ function App() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
+
+  const formatMetric = (value) => {
+    if (typeof value !== 'number') return '—';
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  const overallMetrics = modelStats?.validation_metrics?.overall;
+  const architecture = modelStats?.architecture;
+  const speed = modelStats?.inference_speed_ms_per_image;
+  const classes = modelStats?.dataset?.classes || {};
+  const perClassMetrics = modelStats?.validation_metrics?.per_class || {};
 
   return (
     <div className="App">
@@ -151,6 +217,101 @@ function App() {
 
       <main className="App-main">
         <div className="container">
+          <section className="model-details-section">
+            <div className="model-details-header">
+              <h2>Model Technical Details</h2>
+              <p>Live metadata from <code>/api/stats</code></p>
+            </div>
+
+            {statsLoading && <p className="model-state-text">Loading model profile...</p>}
+            {statsError && <p className="model-state-text error">{statsError}</p>}
+
+            {!statsLoading && !statsError && modelStats && (
+              <>
+                <div className="model-meta-grid">
+                  <div className="model-meta-card">
+                    <h4>Identity</h4>
+                    <p><strong>{modelStats.model_name}</strong></p>
+                    <p>{modelStats.framework?.library} {modelStats.framework?.version}</p>
+                    <p>Task: {modelStats.framework?.task}</p>
+                    <p>Checkpoint: {modelStats.framework?.checkpoint_path}</p>
+                  </div>
+
+                  <div className="model-meta-card">
+                    <h4>Architecture</h4>
+                    <p>{architecture?.summary_name}</p>
+                    <p>Layers: {architecture?.layers?.toLocaleString?.() || architecture?.layers}</p>
+                    <p>Params: {architecture?.parameters?.toLocaleString?.() || architecture?.parameters}</p>
+                    <p>GFLOPs: {architecture?.gflops}</p>
+                  </div>
+
+                  <div className="model-meta-card">
+                    <h4>Validation Set</h4>
+                    <p>Images: {modelStats.dataset?.validation_images?.toLocaleString?.() || modelStats.dataset?.validation_images}</p>
+                    <p>Instances: {modelStats.dataset?.validation_instances?.toLocaleString?.() || modelStats.dataset?.validation_instances}</p>
+                    <p>Classes: {Object.keys(classes).length}</p>
+                  </div>
+
+                  <div className="model-meta-card">
+                    <h4>Inference Profile</h4>
+                    <p>Image size: {modelStats.training_configuration?.inference_image_size}</p>
+                    <p>Conf / IoU: {modelStats.training_configuration?.inference_thresholds?.conf} / {modelStats.training_configuration?.inference_thresholds?.iou}</p>
+                    <p>Inference: {speed?.inference ?? '—'} ms</p>
+                    <p>Pre/Post: {speed?.preprocess ?? '—'} / {speed?.postprocess ?? '—'} ms</p>
+                  </div>
+                </div>
+
+                <div className="model-metrics-strip">
+                  <div className="metric-item">
+                    <span>Precision</span>
+                    <strong>{formatMetric(overallMetrics?.precision)}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>Recall</span>
+                    <strong>{formatMetric(overallMetrics?.recall)}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>mAP@50</span>
+                    <strong>{formatMetric(overallMetrics?.mAP50)}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>mAP@50:95</span>
+                    <strong>{formatMetric(overallMetrics?.mAP50_95)}</strong>
+                  </div>
+                </div>
+
+                {Object.keys(perClassMetrics).length > 0 && (
+                  <div className="class-metrics-panel">
+                    <h3>Per-Class Validation Metrics</h3>
+                    <div className="class-metrics-table-wrap">
+                      <table className="class-metrics-table">
+                        <thead>
+                          <tr>
+                            <th>Class</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>mAP@50</th>
+                            <th>mAP@50:95</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(perClassMetrics).map(([className, values]) => (
+                            <tr key={className}>
+                              <td>{className}</td>
+                              <td>{formatMetric(values.precision)}</td>
+                              <td>{formatMetric(values.recall)}</td>
+                              <td>{formatMetric(values.mAP50)}</td>
+                              <td>{formatMetric(values.mAP50_95)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
           
           {!result && !loading && (
             <div className="upload-section">
@@ -214,10 +375,21 @@ function App() {
                 <FiActivity className="spinner-icon" />
               </div>
               <h3>Analyzing {fileType}...</h3>
-              <p>Processing frames and detecting damage patterns</p>
+              <p>
+                {fileType === 'video' && progress > 0 
+                  ? `Processing frames and detecting damage patterns - ${progress}%`
+                  : 'Processing frames and detecting damage patterns'
+                }
+              </p>
               <div className="progress-bar">
-                <div className="progress-bar-fill"></div>
+                <div 
+                  className="progress-bar-fill" 
+                  style={{ width: `${progress}%` }}
+                ></div>
               </div>
+              {fileType === 'video' && progress > 0 && (
+                <p className="progress-text">{progress}% complete</p>
+              )}
             </div>
           )}
 
@@ -375,13 +547,13 @@ function App() {
           <div className="footer-section">
             <h4>Model Performance</h4>
             <div className="footer-metrics">
-              <span>mAP50: 55.6%</span>
-              <span>Precision: 60.8%</span>
-              <span>Recall: 52.4%</span>
+              <span>mAP50: {formatMetric(overallMetrics?.mAP50)}</span>
+              <span>Precision: {formatMetric(overallMetrics?.precision)}</span>
+              <span>Recall: {formatMetric(overallMetrics?.recall)}</span>
             </div>
           </div>
           <div className="footer-section">
-            <p>YOLOv26n Model • RDD-2022 Dataset</p>
+            <p>{modelStats?.model_name || 'Road Damage Detection Model'} • {modelStats?.framework?.library || 'Ultralytics'} {modelStats?.framework?.version || ''}</p>
           </div>
         </div>
       </footer>

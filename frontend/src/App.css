@@ -93,6 +93,141 @@ body {
   margin: 0 auto;
 }
 
+/* Model Details Section */
+.model-details-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.model-details-header {
+  margin-bottom: 1.25rem;
+}
+
+.model-details-header h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.model-details-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.model-details-header code {
+  background: var(--surface-light);
+  color: var(--text-primary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+}
+
+.model-state-text {
+  color: var(--text-secondary);
+}
+
+.model-state-text.error {
+  color: var(--danger);
+}
+
+.model-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.model-meta-card {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.model-meta-card h4 {
+  margin-bottom: 0.6rem;
+  color: var(--primary-light);
+  font-size: 0.95rem;
+}
+
+.model-meta-card p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-bottom: 0.3rem;
+}
+
+.model-meta-card strong {
+  color: var(--text-primary);
+}
+
+.model-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.metric-item {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-item span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.metric-item strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.class-metrics-panel {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.class-metrics-panel h3 {
+  margin: 0 0 0.75rem 0;
+}
+
+.class-metrics-table-wrap {
+  overflow-x: auto;
+}
+
+.class-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+
+.class-metrics-table th,
+.class-metrics-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem 0.5rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.class-metrics-table th {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.class-metrics-table td {
+  color: var(--text-primary);
+}
+
 /* Upload Section */
 .upload-section {
   margin-bottom: 2rem;
@@ -352,7 +487,19 @@ body {
   height: 100%;
   background: linear-gradient(90deg, var(--primary), var(--primary-light));
   border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill:not([style*="width"]) {
   animation: progress 1.5s ease-in-out infinite;
+}
+
+.progress-text {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary);
+  opacity: 0.9;
 }
 
 @keyframes progress {
@@ -792,6 +939,10 @@ body {
 
   .App-main {
     padding: 2rem 1rem;
+  }
+
+  .model-details-section {
+    padding: 1.25rem;
   }
 
   .dropzone {

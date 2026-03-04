@@ -1,71 +1,15 @@
 # API Testing Guide
 
-## Using cURL
+Base URL: `http://localhost:5000`
 
-### Health Check
+## 1) Health check
+
 ```bash
 curl http://localhost:5000/api/health
 ```
 
-### Upload Image for Detection
-```bash
-curl -X POST -F "file=@path/to/your/image.jpg" http://localhost:5000/api/predict
-```
+Expected:
 
-### Get Model Stats
-```bash
-curl http://localhost:5000/api/stats
-```
-
----
-
-## Using Python Requests
-
-```python
-import requests
-
-# Health check
-response = requests.get('http://localhost:5000/api/health')
-print(response.json())
-
-# Upload image
-with open('test_image.jpg', 'rb') as f:
-    files = {'file': f}
-    response = requests.post('http://localhost:5000/api/predict', files=files)
-    print(response.json())
-
-# Get stats
-response = requests.get('http://localhost:5000/api/stats')
-print(response.json())
-```
-
----
-
-## Using JavaScript/Fetch
-
-```javascript
-// Health check
-fetch('http://localhost:5000/api/health')
-  .then(res => res.json())
-  .then(data => console.log(data));
-
-// Upload image
-const formData = new FormData();
-formData.append('file', fileInput.files[0]);
-
-fetch('http://localhost:5000/api/predict', {
-  method: 'POST',
-  body: formData
-})
-  .then(res => res.json())
-  .then(data => console.log(data));
-```
-
----
-
-## Expected Responses
-
-### Health Check Success
 ```json
 {
   "status": "healthy",
@@ -73,12 +17,19 @@ fetch('http://localhost:5000/api/predict', {
 }
 ```
 
-### Image Detection Success
+## 2) Predict (image/video)
+
+```bash
+curl -X POST -F "file=@path/to/file.jpg" http://localhost:5000/api/predict
+```
+
+Image response shape:
+
 ```json
 {
   "success": true,
   "type": "image",
-  "result_id": "123e4567-e89b-12d3-a456-426614174000",
+  "result_id": "<uuid>",
   "detections": [
     {
       "class": "Pothole",
@@ -96,16 +47,17 @@ fetch('http://localhost:5000/api/predict', {
     "Pothole": 1,
     "Longitudinal Crack": 2
   },
-  "result_image": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+  "result_image": "data:image/jpeg;base64,..."
 }
 ```
 
-### Video Detection Success
+Video response shape:
+
 ```json
 {
   "success": true,
   "type": "video",
-  "result_id": "123e4567-e89b-12d3-a456-426614174000",
+  "result_id": "<uuid>",
   "frames_processed": 150,
   "total_detections": 45,
   "detection_summary": {
@@ -113,22 +65,66 @@ fetch('http://localhost:5000/api/predict', {
     "Transverse Crack": 15,
     "Pothole": 10
   },
-  "result_video_url": "/api/download/123e4567-e89b-12d3-a456-426614174000"
+  "result_video_url": "http://localhost:5000/api/download/<uuid>"
 }
 ```
 
-### Error Response
+## 3) Progress
+
+```bash
+curl http://localhost:5000/api/progress/<session_id>
+```
+
+Expected shape:
+
 ```json
 {
-  "error": "No file provided"
+  "current": 75,
+  "total": 150,
+  "percentage": 50,
+  "status": "processing"
 }
 ```
 
----
+## 4) Download processed video
 
-## Status Codes
+```bash
+curl -O http://localhost:5000/api/download/<result_id>
+```
 
-- `200`: Success
-- `400`: Bad Request (missing file, invalid type, etc.)
-- `404`: Not Found (for download endpoint)
-- `500`: Server Error (processing failed)
+## 5) Model technical stats
+
+```bash
+curl http://localhost:5000/api/stats
+```
+
+Response includes:
+
+- model name and framework versions
+- architecture (layers, params, GFLOPs)
+- dataset counts and class distribution
+- training/inference configuration
+- validation metrics (overall and per class)
+- speed profile (preprocess/inference/postprocess)
+
+## Python requests example
+
+```python
+import requests
+
+base = "http://localhost:5000"
+
+print(requests.get(f"{base}/api/health").json())
+print(requests.get(f"{base}/api/stats").json())
+
+with open("test_image.jpg", "rb") as file_obj:
+    response = requests.post(f"{base}/api/predict", files={"file": file_obj})
+    print(response.json())
+```
+
+## Status codes
+
+- `200` success
+- `400` invalid request / unsupported file
+- `404` missing result file
+- `500` server-side processing error
