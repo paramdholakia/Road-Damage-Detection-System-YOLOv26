@@ -8,16 +8,27 @@ from ultralytics import YOLO
 import base64
 from pathlib import Path
 import uuid
+import time
+from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+
+BASE_DIR = Path(__file__).resolve().parent
+STORAGE_ROOT = Path(os.environ.get('STORAGE_ROOT', '/tmp/roadlens'))
+UPLOAD_FOLDER = STORAGE_ROOT / 'uploads'
+RESULTS_FOLDER = STORAGE_ROOT / 'results'
+MODEL_PATH = Path(os.environ.get('MODEL_PATH', BASE_DIR / 'models' / 'best.pt'))
+
+allowed_origins = [origin.strip() for origin in os.environ.get('ALLOWED_ORIGINS', '*').split(',') if origin.strip()]
+if not allowed_origins:
+    allowed_origins = ['*']
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 # Configuration
-UPLOAD_FOLDER = 'uploads'
-RESULTS_FOLDER = 'results'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'mp4', 'avi', 'mov'}
-# Use os.path.join so it works on both Windows and Linux servers
-MODEL_PATH = os.path.join('models', 'best.pt')
+MAX_UPLOAD_MB = int(os.environ.get('MAX_UPLOAD_MB', '200'))
+FILE_RETENTION_MINUTES = int(os.environ.get('FILE_RETENTION_MINUTES', '60'))
+DELETE_VIDEO_AFTER_DOWNLOAD = os.environ.get('DELETE_VIDEO_AFTER_DOWNLOAD', 'true').lower() == 'true'
 
 # Progress tracking dictionary
 progress_tracker = {}
@@ -26,9 +37,9 @@ progress_tracker = {}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = None  # No file size limit for testing
+app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
+app.config['RESULTS_FOLDER'] = str(RESULTS_FOLDER)
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_MB * 1024 * 1024
 
 # Load YOLO model
 print("Loading YOLO model...")
@@ -45,12 +56,12 @@ CLASS_NAMES = {
 }
 
 MODEL_TECHNICAL_DETAILS = {
-    'model_name': 'YOLO26m Road Damage Detector',
+    'model_name': 'RoadLens YOLO26m Detector',
     'framework': {
         'library': 'Ultralytics',
         'version': '8.4.19',
         'task': 'detect',
-        'checkpoint_path': MODEL_PATH,
+        'checkpoint_path': str(MODEL_PATH),
         'checkpoint_size_mb': 44.2
     },
     'architecture': {
@@ -143,8 +154,46 @@ MODEL_TECHNICAL_DETAILS = {
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def safe_session_id(raw_session_id):
+    return secure_filename(raw_session_id) or str(uuid.uuid4())
+
 def is_video(filename):
     return filename.rsplit('.', 1)[1].lower() in {'mp4', 'avi', 'mov'}
+
+def cleanup_file(path):
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except Exception as cleanup_error:
+            print(f"Cleanup warning for {path}: {cleanup_error}")
+
+def cleanup_expired_files():
+    now = time.time()
+    retention_seconds = FILE_RETENTION_MINUTES * 60
+
+    for folder in (app.config['UPLOAD_FOLDER'], app.config['RESULTS_FOLDER']):
+        try:
+            for entry in os.scandir(folder):
+                if not entry.is_file():
+                    continue
+                file_age = now - entry.stat().st_mtime
+                if file_age > retention_seconds:
+                    cleanup_file(entry.path)
+        except FileNotFoundError:
+            os.makedirs(folder, exist_ok=True)
+        except Exception as cleanup_error:
+            print(f"Directory cleanup warning for {folder}: {cleanup_error}")
+
+def purge_stale_progress():
+    retention_seconds = FILE_RETENTION_MINUTES * 60
+    now = time.time()
+    stale_ids = []
+    for session_id, info in progress_tracker.items():
+        updated_at = info.get('updated_at')
+        if updated_at and (now - updated_at) > retention_seconds:
+            stale_ids.append(session_id)
+    for session_id in stale_ids:
+        progress_tracker.pop(session_id, None)
 
 def encode_image_to_base64(image_path):
     """Encode image to base64 string"""
@@ -156,12 +205,21 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'model_loaded': model is not None
+        'model_loaded': model is not None,
+        'storage_root': str(STORAGE_ROOT),
+        'max_upload_mb': MAX_UPLOAD_MB,
+        'file_retention_minutes': FILE_RETENTION_MINUTES,
+        'timestamp_utc': datetime.utcnow().isoformat() + 'Z'
     })
+
+@app.errorhandler(413)
+def request_entity_too_large(_error):
+    return jsonify({'error': f'File too large. Maximum allowed size is {MAX_UPLOAD_MB}MB.'}), 413
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
     """Handle image/video upload and perform detection"""
+    filepath = None
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
@@ -174,8 +232,11 @@ def predict():
         if not allowed_file(file.filename):
             return jsonify({'error': 'Invalid file type'}), 400
         
+        cleanup_expired_files()
+        purge_stale_progress()
+
         # Get session ID from request or generate one
-        session_id = request.form.get('session_id', str(uuid.uuid4()))
+        session_id = safe_session_id(request.form.get('session_id', str(uuid.uuid4())))
         
         # Generate unique filename
         original_filename = secure_filename(file.filename)
@@ -192,13 +253,15 @@ def predict():
         if is_video(filename):
             print("Processing video...")
             result = process_video(filepath, session_id)
-            result['result_video_url'] = f"{request.host_url.rstrip('/')}/api/download/{session_id}"
+            base_video_url = f"{request.host_url.rstrip('/')}/api/download/{session_id}"
+            result['result_video_url'] = base_video_url
+            result['download_video_url'] = f"{base_video_url}?download=1"
             print("Video processing complete")
         else:
             print("Processing image...")
             result = process_image(filepath, session_id)
             print("Image processing complete")
-        
+
         return jsonify(result)
     
     except Exception as e:
@@ -206,6 +269,8 @@ def predict():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+    finally:
+        cleanup_file(filepath)
 
 def process_image(image_path, unique_id):
     """Process a single image"""
@@ -213,7 +278,7 @@ def process_image(image_path, unique_id):
         # Run prediction
         results = model.predict(
             source=image_path,
-            conf=0.25,  
+            conf=0.20,  
             iou=0.45,   
             imgsz=1280, # CRITICAL: Maintain your high-resolution training standard
             save=False
@@ -252,6 +317,7 @@ def process_image(image_path, unique_id):
         
         # Encode result image to base64
         result_image_base64 = encode_image_to_base64(output_path)
+        cleanup_file(output_path)
         
         # Count detections by class
         detection_summary = {}
@@ -283,7 +349,8 @@ def process_video(video_path, unique_id):
             'current': 0,
             'total': 0,
             'percentage': 0,
-            'status': 'initializing'
+            'status': 'initializing',
+            'updated_at': time.time()
         }
         
         cap = cv2.VideoCapture(video_path)
@@ -298,6 +365,7 @@ def process_video(video_path, unique_id):
         
         progress_tracker[unique_id]['total'] = total_frames
         progress_tracker[unique_id]['status'] = 'processing'
+        progress_tracker[unique_id]['updated_at'] = time.time()
         
         if width == 0 or height == 0 or fps == 0:
             raise Exception("Invalid video properties")
@@ -341,7 +409,7 @@ def process_video(video_path, unique_id):
             # Run prediction on frame
             results = model.predict(
                 source=frame,
-                conf=0.25,
+                conf=0.20,
                 iou=0.45,
                 imgsz=1280, # CRITICAL: Ensure video frames use high-res inference
                 save=False,
@@ -363,6 +431,7 @@ def process_video(video_path, unique_id):
             
             progress_tracker[unique_id]['current'] = frame_count
             progress_tracker[unique_id]['percentage'] = int((frame_count / total_frames) * 100)
+            progress_tracker[unique_id]['updated_at'] = time.time()
             
             if frame_count % 30 == 0:
                 print(f"Processed {frame_count}/{total_frames} frames ({progress_tracker[unique_id]['percentage']}%)...")
@@ -370,6 +439,7 @@ def process_video(video_path, unique_id):
         print(f"Video processing complete: {frame_count} frames processed")
         progress_tracker[unique_id]['status'] = 'complete'
         progress_tracker[unique_id]['percentage'] = 100
+        progress_tracker[unique_id]['updated_at'] = time.time()
         
         return {
             'success': True,
@@ -385,6 +455,7 @@ def process_video(video_path, unique_id):
         if unique_id in progress_tracker:
             progress_tracker[unique_id]['status'] = 'error'
             progress_tracker[unique_id]['error'] = str(e)
+            progress_tracker[unique_id]['updated_at'] = time.time()
         raise
     
     finally:
@@ -394,29 +465,59 @@ def process_video(video_path, unique_id):
 @app.route('/api/download/<result_id>', methods=['GET'])
 def download_result(result_id):
     """Stream result video"""
-    video_path = os.path.join(app.config['RESULTS_FOLDER'], f"{result_id}_result.mp4")
+    cleanup_expired_files()
+    purge_stale_progress()
+    safe_result_id = secure_filename(result_id)
+    video_path = os.path.join(app.config['RESULTS_FOLDER'], f"{safe_result_id}_result.mp4")
 
     if not os.path.exists(video_path):
         return jsonify({'error': 'Video not found'}), 404
 
+    force_download = request.args.get('download', 'false').lower() == 'true'
+
     response = send_file(
         video_path,
         mimetype='video/mp4',
-        as_attachment=False,
+        as_attachment=force_download,
+        download_name=f"{safe_result_id}_result.mp4" if force_download else None,
         conditional=True
     )
     response.headers['Accept-Ranges'] = 'bytes'
+
+    should_delete = request.args.get('keep', 'false').lower() != 'true' and DELETE_VIDEO_AFTER_DOWNLOAD
+    if should_delete:
+        response.call_on_close(lambda: cleanup_file(video_path))
+
     return response
 
 @app.route('/api/progress/<session_id>', methods=['GET'])
 def get_progress(session_id):
     """Get processing progress for a session"""
+    purge_stale_progress()
     if session_id in progress_tracker:
-        return jsonify(progress_tracker[session_id])
+        progress_data = dict(progress_tracker[session_id])
+        percentage = int(progress_data.get('percentage', 0) or 0)
+        status = progress_data.get('status')
+
+        if status in {'not_found', 'initializing'}:
+            poll_after_ms = 8000
+        elif status == 'processing':
+            if percentage < 15:
+                poll_after_ms = 7000
+            elif percentage < 90:
+                poll_after_ms = 10000
+            else:
+                poll_after_ms = 5000
+        else:
+            poll_after_ms = 12000
+
+        progress_data['poll_after_ms'] = poll_after_ms
+        return jsonify(progress_data)
     else:
         return jsonify({
             'status': 'not_found',
-            'percentage': 0
+            'percentage': 0,
+            'poll_after_ms': 8000
         })
 
 @app.route('/api/stats', methods=['GET'])
@@ -425,4 +526,4 @@ def get_stats():
     return jsonify(MODEL_TECHNICAL_DETAILS)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true', host='0.0.0.0', port=int(os.environ.get('PORT', '5000')))

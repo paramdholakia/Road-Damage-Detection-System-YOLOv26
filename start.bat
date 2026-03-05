@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Road Damage Detection System - Startup
+echo RoadLens - Startup
 echo ========================================
 echo.
 
@@ -40,9 +40,9 @@ echo Starting Servers...
 echo ========================================
 echo.
 
-start "Road Damage Detection - Backend" cmd /k "cd backend && venv\Scripts\activate && python app.py"
+start "RoadLens - Backend" cmd /k "cd backend && venv\Scripts\activate && python app.py"
 timeout /t 3 /nobreak > nul
-start "Road Damage Detection - Frontend" cmd /k "cd frontend && npm start"
+start "RoadLens - Frontend" cmd /k "cd frontend && npm start"
 
 echo.
 echo ========================================

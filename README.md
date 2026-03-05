@@ -1,6 +1,6 @@
-# Road Damage Detection System
+# RoadLens
 
-A full-stack road damage detection application with a Flask backend and React frontend. It performs object detection on images and videos using a trained Ultralytics YOLO model and returns annotated outputs with structured detection statistics.
+RoadLens is a full-stack road damage detection application with a Flask backend and React frontend. It performs object detection on images and videos using a trained Ultralytics YOLO26 model and returns annotated outputs with structured detection statistics.
 
 ## Table of Contents
 
@@ -10,6 +10,7 @@ A full-stack road damage detection application with a Flask backend and React fr
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Deploy on Render](#deploy-on-render)
 - [API Endpoints](#api-endpoints)
 - [Performance Summary](#performance-summary)
 - [Troubleshooting](#troubleshooting)
@@ -36,7 +37,7 @@ A full-stack road damage detection application with a Flask backend and React fr
 
 ### Model Identity
 
-- Model name: **YOLO26m Road Damage Detector**
+- Model name: **RoadLens YOLO26m Detector**
 - Framework: **Ultralytics 8.4.19**
 - Task: **Object detection**
 - Checkpoint: `backend/models/best.pt`
@@ -79,7 +80,7 @@ A full-stack road damage detection application with a Flask backend and React fr
 ## Project Structure
 
 ```text
-Road Damage Detection System GITHUB/
+RoadLens/
 ├── backend/
 │   ├── app.py
 │   ├── requirements.txt
@@ -146,6 +147,50 @@ npm start
 
 - Backend: `http://localhost:5000`
 - Frontend: `http://localhost:3000`
+
+## Deploy on Render
+
+This repository now includes a Render Blueprint: `render.yaml`.
+
+### 1) Create services from Blueprint
+
+1. Push this repo to GitHub.
+2. In Render, choose **New +** → **Blueprint**.
+3. Select the repo. Render will create:
+  - `roadlens-backend` (Python web service)
+  - `roadlens-frontend` (Static web service)
+
+### Important: include model in Git
+
+- Keep `backend/models/best.pt` committed to the repository so Render can load the model at build/runtime.
+- Current `.gitignore` is configured to include this specific file while still ignoring other temporary/runtime files.
+- If your checkpoint exceeds GitHub's file size limits, use Git LFS before deploying.
+
+### 2) Set frontend backend URL
+
+In Render dashboard, set on `roadlens-frontend`:
+
+- `REACT_APP_API_URL=https://<your-backend-service>.onrender.com`
+
+Then redeploy `roadlens-frontend` so build-time env is applied.
+
+### 3) Backend resource-control env vars
+
+Set on `roadlens-backend` (defaults are already in `render.yaml`):
+
+- `MAX_UPLOAD_MB` (default `200`)
+- `FILE_RETENTION_MINUTES` (default `60`)
+- `DELETE_VIDEO_AFTER_DOWNLOAD` (default `true`)
+- `ALLOWED_ORIGINS` (comma-separated origins, or `*`)
+
+### Cloud storage behavior (resource-safe)
+
+- Uploaded files are stored in `/tmp/roadlens/uploads` and auto-cleaned.
+- Image output files are removed immediately after response encoding.
+- Old upload/result files are purged by retention policy.
+- Video files are deleted after download by default.
+- Keep a processed video after download by calling:
+  - `GET /api/download/<result_id>?keep=true`
 
 ## API Endpoints
 

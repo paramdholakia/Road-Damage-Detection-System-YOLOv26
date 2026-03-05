@@ -22,9 +22,13 @@ import {
   HiCpuChip
 } from 'react-icons/hi2';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
+
 function App() {
   const scrollContainerRef = useRef(null);
   const locomotiveRef = useRef(null);
+  const submitInProgressRef = useRef(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -40,7 +44,7 @@ function App() {
     const fetchModelStats = async () => {
       try {
         setStatsLoading(true);
-        const response = await axios.get('/api/stats');
+        const response = await axios.get(apiUrl('/api/stats'));
         setModelStats(response.data);
         setStatsError(null);
       } catch (err) {
@@ -176,12 +180,17 @@ function App() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (submitInProgressRef.current) {
+      return;
+    }
     
     if (!file) {
       setError('Please select a file first');
       return;
     }
 
+    submitInProgressRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -195,28 +204,50 @@ function App() {
     formData.append('session_id', tempSessionId);
     
     // Start polling for progress if it's a video
-    let progressInterval = null;
+    let shouldStopPolling = false;
+    let progressTimeout = null;
+
     if (fileType === 'video') {
-      progressInterval = setInterval(async () => {
+      const scheduleNextPoll = (delayMs) => {
+        if (shouldStopPolling) {
+          return;
+        }
+        progressTimeout = setTimeout(pollProgress, delayMs);
+      };
+
+      const pollProgress = async () => {
+        if (shouldStopPolling) {
+          return;
+        }
+
         try {
-          const response = await axios.get(`/api/progress/${tempSessionId}`);
+          const response = await axios.get(apiUrl(`/api/progress/${tempSessionId}`));
           const progressData = response.data;
+          const suggestedDelay = Number(progressData.poll_after_ms);
+          const delay = Number.isFinite(suggestedDelay) && suggestedDelay > 0 ? suggestedDelay : 10000;
           
           if (progressData.status === 'processing') {
             setProgress(progressData.percentage || 0);
+            scheduleNextPoll(delay);
+          } else if (progressData.status === 'initializing' || progressData.status === 'not_found') {
+            scheduleNextPoll(delay);
           } else if (progressData.status === 'complete') {
             setProgress(100);
-            clearInterval(progressInterval);
+          } else {
+            scheduleNextPoll(delay);
           }
         } catch (err) {
           // Progress endpoint may not exist yet, ignore errors
           console.debug('Progress not available yet');
+          scheduleNextPoll(12000);
         }
-      }, 500); // Poll every 500ms
+      };
+
+      pollProgress();
     }
 
     try {
-      const response = await axios.post('/api/predict', formData, {
+      const response = await axios.post(apiUrl('/api/predict'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -229,8 +260,10 @@ function App() {
       console.error('Error:', err);
     } finally {
       setLoading(false);
-      if (progressInterval) {
-        clearInterval(progressInterval);
+      submitInProgressRef.current = false;
+      shouldStopPolling = true;
+      if (progressTimeout) {
+        clearTimeout(progressTimeout);
       }
     }
   };
@@ -329,7 +362,7 @@ function App() {
           <div className="header-left">
             <div className="header-text">
               <p className="header-kicker">Smart Infrastructure Intelligence</p>
-              <h1>Road Damage Detection System</h1>
+              <h1>RoadLens</h1>
               <p className="subtitle">Fast detection for cracks, potholes, and road defects from images or video.</p>
               <div className="header-underline"></div>
             </div>
@@ -595,13 +628,14 @@ function App() {
                     <video
                       src={result.result_video_url}
                       controls
+                      preload="none"
                       className="result-video"
                     />
                     <div className="video-info">
                       <h4>Your video has been processed</h4>
                       <p>{result.frames_processed} frames analyzed with {result.total_detections} detections</p>
                     </div>
-                    <a href={result.result_video_url} className="btn btn-download">
+                    <a href={result.download_video_url || result.result_video_url} className="btn btn-download">
                       <FiDownload />
                       <span>Download Video</span>
                     </a>
@@ -728,7 +762,7 @@ function App() {
             </div>
           </div>
           <div className="footer-model-block">
-            <p>{modelStats?.model_name || 'Road Damage Detection Model'} • {modelStats?.framework?.library || 'Ultralytics'} {modelStats?.framework?.version || ''}</p>
+            <p>{modelStats?.model_name || 'RoadLens Detection Model'} • {modelStats?.framework?.library || 'Ultralytics'} {modelStats?.framework?.version || ''}</p>
             <p className="footer-love">
               Crafted with <HiHeart className="footer-heart" /> by{' '}
               <a

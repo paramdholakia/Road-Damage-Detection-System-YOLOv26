@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Road Damage Detection System
+echo RoadLens
 echo Full Installation Script
 echo ========================================
 echo.
@@ -66,7 +66,7 @@ echo.
 echo [5/5] Verifying Installation...
 cd backend
 call venv\Scripts\activate
-python -c "from ultralytics import YOLO; m = YOLO('../model/best.pt'); print('✓ Model loaded successfully')"
+python -c "from ultralytics import YOLO; m = YOLO('models/best.pt'); print('✓ Model loaded successfully')"
 cd ..
 echo.
 

@@ -1,5 +1,5 @@
 {
-  "name": "road-damage-detection-frontend",
+  "name": "roadlens-frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

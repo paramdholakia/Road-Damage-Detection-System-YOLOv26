@@ -40,7 +40,7 @@ Open `http://localhost:3000`.
 
 ## Quick Technical Snapshot
 
-- Model: YOLO26m Road Damage Detector (`backend/models/best.pt`)
+- Model: RoadLens YOLO26m Detector (`backend/models/best.pt`)
 - Framework: Ultralytics 8.4.19
 - Architecture: 132 layers, 20,353,307 params, 67.9 GFLOPs
 - Classes: Longitudinal Crack, Transverse Crack, Alligator Crack, Other, Pothole
