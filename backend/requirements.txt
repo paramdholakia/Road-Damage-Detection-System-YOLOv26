@@ -56,6 +56,8 @@ pandas==2.3.3
 pandocfilters==1.5.1
 parso==0.8.6
 pillow==12.1.1
+pillow-avif-plugin>=1.4.6
+pillow-heif>=0.18.0
 platformdirs==4.9.4
 polars==1.39.3
 polars-runtime-32==1.39.3

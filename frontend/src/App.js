@@ -141,11 +141,21 @@ function App() {
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/avif': ['.avif'],
+      'image/gif': ['.gif'],
+      'image/bmp': ['.bmp', '.dib'],
+      'image/tiff': ['.tif', '.tiff'],
+      'image/heic': ['.heic'],
+      'image/heif': ['.heif'],
+      'image/jfif': ['.jfif', '.jpe'],
       'video/mp4': ['.mp4'],
       'video/avi': ['.avi'],
       'video/quicktime': ['.mov'],
       'video/x-msvideo': ['.avi'],
-      'video/x-matroska': ['.mkv']
+      'video/x-matroska': ['.mkv'],
+      'video/webm': ['.webm'],
+      'video/x-m4v': ['.m4v']
     },
     multiple: false,
     maxSize: 500 * 1024 * 1024, // Increased to 500MB
@@ -423,7 +433,7 @@ function App() {
                   <>
                     <p className="dropzone-text-primary">Drag & drop your file here</p>
                     <p className="dropzone-text-secondary">or click to browse</p>
-                    <p className="dropzone-formats">Supports: JPG, PNG, MP4, AVI, MOV</p>
+                    <p className="dropzone-formats">Supports: JPG, JPEG, PNG, WEBP, JFIF, AVIF, GIF, BMP, TIFF, HEIC, HEIF, MP4, AVI, MOV, MKV, WEBM, M4V</p>
                   </>
                 )}
               </div>

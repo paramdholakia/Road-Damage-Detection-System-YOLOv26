@@ -11,7 +11,20 @@ import uuid
 import time
 from datetime import datetime
 import socket
+import importlib
 import torch
+from PIL import Image, UnidentifiedImageError
+
+try:
+    importlib.import_module('pillow_avif')
+except ImportError:
+    pass
+
+try:
+    pillow_heif_module = importlib.import_module('pillow_heif')
+    pillow_heif_module.register_heif_opener()
+except ImportError:
+    pass
 
 app = Flask(__name__)
 
@@ -27,7 +40,13 @@ if not allowed_origins:
 CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 # Configuration
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'mp4', 'avi', 'mov'}
+IMAGE_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'webp', 'jfif', 'jpe',
+    'bmp', 'dib', 'tif', 'tiff', 'gif',
+    'avif', 'heic', 'heif'
+}
+VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'webm', 'm4v'}
+ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 MAX_UPLOAD_MB = int(os.environ.get('MAX_UPLOAD_MB', '200'))
 FILE_RETENTION_MINUTES = int(os.environ.get('FILE_RETENTION_MINUTES', '60'))
 DELETE_VIDEO_AFTER_DOWNLOAD = os.environ.get('DELETE_VIDEO_AFTER_DOWNLOAD', 'true').lower() == 'true'
@@ -178,7 +197,22 @@ def safe_session_id(raw_session_id):
     return secure_filename(raw_session_id) or str(uuid.uuid4())
 
 def is_video(filename):
-    return filename.rsplit('.', 1)[1].lower() in {'mp4', 'avi', 'mov'}
+    return filename.rsplit('.', 1)[1].lower() in VIDEO_EXTENSIONS
+
+def decode_image_for_inference(image_path):
+    """Decode an image path into a BGR frame for model inference."""
+    frame = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    if frame is not None:
+        return frame
+
+    try:
+        with Image.open(image_path) as pil_image:
+            rgb_image = pil_image.convert('RGB')
+            return cv2.cvtColor(np.array(rgb_image), cv2.COLOR_RGB2BGR)
+    except (UnidentifiedImageError, OSError) as image_error:
+        raise ValueError(
+            f"Unsupported or corrupted image format: {Path(image_path).suffix.lower()}"
+        ) from image_error
 
 def cleanup_file(path):
     if path and os.path.exists(path):
@@ -299,9 +333,11 @@ def predict():
 def process_image(image_path, unique_id):
     """Process a single image"""
     try:
+        image_frame = decode_image_for_inference(image_path)
+
         # Run prediction
         results = model.predict(
-            source=image_path,
+            source=image_frame,
             conf=0.20,  
             iou=0.45,   
             imgsz=1280, # CRITICAL: Maintain your high-resolution training standard
