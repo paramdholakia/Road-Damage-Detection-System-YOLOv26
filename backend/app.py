@@ -10,6 +10,7 @@ from pathlib import Path
 import uuid
 import time
 from datetime import datetime
+import socket
 
 app = Flask(__name__)
 
@@ -51,7 +52,7 @@ CLASS_NAMES = {
     0: 'Longitudinal Crack',
     1: 'Transverse Crack',
     2: 'Alligator Crack',
-    3: 'Other',               # Cleaned up from "Other Corruption"
+    3: 'Other',               
     4: 'Pothole'
 }
 
@@ -525,5 +526,48 @@ def get_stats():
     """Get model statistics"""
     return jsonify(MODEL_TECHNICAL_DETAILS)
 
+def can_bind(host, port):
+    """Check if a host/port can be bound before starting Flask."""
+    test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        test_socket.bind((host, port))
+        return True
+    except OSError:
+        return False
+    finally:
+        test_socket.close()
+
+def resolve_server_binding():
+    """Resolve a usable host while keeping a stable, configured port."""
+    requested_host = (os.environ.get('FLASK_HOST') or '').strip()
+
+    raw_port = (os.environ.get('PORT') or '5055').strip()
+    try:
+        base_port = int(raw_port)
+    except ValueError:
+        raise RuntimeError(
+            f"Invalid PORT value '{raw_port}'. Please set PORT to a valid integer, e.g. 5055."
+        )
+
+    if requested_host:
+        hosts_to_try = [requested_host]
+    elif os.name == 'nt':
+        hosts_to_try = ['127.0.0.1', '0.0.0.0']
+    else:
+        hosts_to_try = ['0.0.0.0']
+
+    for host in hosts_to_try:
+        if can_bind(host, base_port):
+            return host, base_port
+
+    raise RuntimeError(
+        f"Unable to bind Flask server on port {base_port} using hosts {hosts_to_try}. "
+        "Set PORT to an allowed port, then use the same backend URL in the frontend proxy or REACT_APP_API_URL."
+    )
+
 if __name__ == '__main__':
-    app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true', host='0.0.0.0', port=int(os.environ.get('PORT', '5000')))
+    debug_enabled = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    selected_host, selected_port = resolve_server_binding()
+    print(f"Starting server on http://{selected_host}:{selected_port}")
+    app.run(debug=debug_enabled, host=selected_host, port=selected_port)

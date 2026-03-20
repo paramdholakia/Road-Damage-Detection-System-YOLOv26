@@ -40,7 +40,7 @@ echo Starting Servers...
 echo ========================================
 echo.
 
-start "RoadLens - Backend" cmd /k "cd backend && venv\Scripts\activate && python app.py"
+start "RoadLens - Backend" cmd /k "cd backend && venv\Scripts\activate && set FLASK_HOST=127.0.0.1 && set PORT=5055 && python app.py"
 timeout /t 3 /nobreak > nul
 start "RoadLens - Frontend" cmd /k "cd frontend && npm start"
 
@@ -48,7 +48,7 @@ echo.
 echo ========================================
 echo Servers are starting...
 echo.
-echo Backend will run on: http://localhost:5000
+echo Backend will run on: http://localhost:5055
 echo Frontend will run on: http://localhost:3000
 echo.
 echo The browser should open automatically.
