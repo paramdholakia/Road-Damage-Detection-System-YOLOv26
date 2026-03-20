@@ -1,71 +1,195 @@
-# Python
+################################################################################
+# PYTHON - Byte-compiled / optimized / DLL files
+################################################################################
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Virtual environments / local env files
-venv/
-.venv/
-env/
-ENV/
-.env
-
-# Build and packaging
+.Python
 build/
+develop-eggs/
 dist/
-*.egg-info/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Backend runtime data
-backend/venv/
+################################################################################
+# VIRTUAL ENVIRONMENTS
+################################################################################
+venv/*
+venv_gpu/*
+.venv/*
+env/*
+ENV/*
+env.bak/*
+venv.bak/*
+
+backend/venv/*
+backend/venv_gpu/*
+backend/venv/etc
+backend/venv/Scripts
+backend/venv/share
+backend/venv/Lib
+
+
+################################################################################
+# ENVIRONMENT VARIABLES
+################################################################################
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+################################################################################
+# BACKEND - Runtime Data & Temporary Files
+################################################################################
+backend/__pycache__/
+backend/*.log
+backend/*.pyc
 backend/uploads/*
 backend/results/*
-backend/*.log
 !backend/uploads/.gitkeep
 !backend/results/.gitkeep
 
-# Frontend
+# Model checkpoints (exclude all .pt files except best.pt)
+backend/models/*.pt
+!backend/models/best.pt
+
+################################################################################
+# FRONTEND - Node & Build Output
+################################################################################
 frontend/node_modules/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
 frontend/build/
 frontend/dist/
 frontend/.cache/
 frontend/coverage/
+
+# Frontend environment files
+frontend/.env
 frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
 frontend/.env.*.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Keep model checkpoint required for Render deploy
-backend/models/*.pt
-!backend/models/best.pt
+################################################################################
+# PYTHON PACKAGING
+################################################################################
+*.egg
+*.egg-info
+dist
+build
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Notebooks
-.ipynb_checkpoints/
-
-# Testing
+################################################################################
+# TESTING
+################################################################################
 .pytest_cache/
 .coverage
 .coverage.*
 htmlcov/
 .tox/
+.hypothesis/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
 
-# Editor / OS
+################################################################################
+# JUPYTER NOTEBOOK
+################################################################################
+.ipynb_checkpoints
+*.ipynb
+
+################################################################################
+# PYENV
+################################################################################
+.python-version
+
+################################################################################
+# EDITOR & IDE
+################################################################################
 .vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
+.project
+.pydevproject
+.scalablytyped
+.cache
+*.sublime-project
+*.sublime-workspace
 
-# Local media
+################################################################################
+# OPERATING SYSTEM
+################################################################################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.cab
+*.msi
+
+################################################################################
+# TEMPORARY & MEDIA FILES
+################################################################################
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
 *.mp4
 *.avi
-*.jpg
+*.mov
+*.mkv
 *.png
+*.jpg
 *.jpeg
+*.gif
+*.log
+.git/
+
+# Large media files (generated outputs only)
+# Note: These can be uncommitted - only temporary processing outputs
+backend/results/*.mp4
+backend/results/*.avi
+backend/uploads/*.mp4
+backend/uploads/*.avi
+backend/uploads/*.mov
+
+################################################################################
+# SYSTEM
+################################################################################
+*.pid
+*.seed
+*.seed.*
+*.junk
+*.lock

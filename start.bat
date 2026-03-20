@@ -22,16 +22,17 @@ if errorlevel 1 (
 )
 echo.
 
-echo [3/3] Activating Python Virtual Environment...
+echo [3/3] Activating Python Virtual Environment (GPU)...
 cd backend
-if not exist venv (
-    echo ERROR: Python venv not found!
-    echo Please run: install_dependencies.bat first
+if not exist venv_gpu (
+    echo ERROR: Python venv_gpu not found!
+    echo Please create it with: py -3.10 -m venv venv_gpu
+    echo Then install GPU dependencies with: venv_gpu\Scripts\activate ^&^& pip install -r requirements.txt
     cd ..
     pause
     exit /b 1
 )
-call venv\Scripts\activate
+call venv_gpu\Scripts\activate
 cd ..
 echo.
 
@@ -40,7 +41,7 @@ echo Starting Servers...
 echo ========================================
 echo.
 
-start "RoadLens - Backend" cmd /k "cd backend && venv\Scripts\activate && set FLASK_HOST=127.0.0.1 && set PORT=5055 && python app.py"
+start "RoadLens - Backend (GPU)" cmd /k "cd backend && venv_gpu\Scripts\activate && set FLASK_HOST=127.0.0.1 && set PORT=5055 && python app.py"
 timeout /t 3 /nobreak > nul
 start "RoadLens - Frontend" cmd /k "cd frontend && npm start"
 

@@ -11,6 +11,7 @@ import uuid
 import time
 from datetime import datetime
 import socket
+import torch
 
 app = Flask(__name__)
 
@@ -41,6 +42,24 @@ os.makedirs(RESULTS_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = str(UPLOAD_FOLDER)
 app.config['RESULTS_FOLDER'] = str(RESULTS_FOLDER)
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_MB * 1024 * 1024
+
+# GPU/Device Detection
+def get_device():
+    """Detect and return the best available device"""
+    if torch.cuda.is_available():
+        device = 'cuda:0'
+        gpu_name = torch.cuda.get_device_name(0)
+        cuda_version = torch.version.cuda
+        print(f"✓ GPU Available: {gpu_name}")
+        print(f"  CUDA Version: {cuda_version}")
+        print(f"  Device: {device}")
+        return device, gpu_name, cuda_version
+    else:
+        print("⚠ GPU Not Available: Using CPU for inference (slower)")
+        return 'cpu', 'CPU', 'N/A'
+
+DEVICE, GPU_NAME, CUDA_VERSION = get_device()
+print(f"\nUsing device: {DEVICE}\n")
 
 # Load YOLO model
 print("Loading YOLO model...")
@@ -207,6 +226,10 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'model_loaded': model is not None,
+        'device': DEVICE,
+        'gpu_name': GPU_NAME,
+        'cuda_available': torch.cuda.is_available(),
+        'cuda_version': CUDA_VERSION,
         'storage_root': str(STORAGE_ROOT),
         'max_upload_mb': MAX_UPLOAD_MB,
         'file_retention_minutes': FILE_RETENTION_MINUTES,
@@ -282,6 +305,7 @@ def process_image(image_path, unique_id):
             conf=0.20,  
             iou=0.45,   
             imgsz=1280, # CRITICAL: Maintain your high-resolution training standard
+            device=DEVICE,
             save=False
         )
         
@@ -413,6 +437,7 @@ def process_video(video_path, unique_id):
                 conf=0.20,
                 iou=0.45,
                 imgsz=1280, # CRITICAL: Ensure video frames use high-res inference
+                device=DEVICE,
                 save=False,
                 verbose=False
             )
