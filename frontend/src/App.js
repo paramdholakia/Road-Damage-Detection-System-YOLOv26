@@ -370,6 +370,11 @@ function App() {
       <header className="App-header">
         <div className="header-content">
           <div className="header-left">
+            <img
+              className="header-brand-logo"
+              src={`${process.env.PUBLIC_URL}/logo.png`}
+              alt="RoadLens logo"
+            />
             <div className="header-text">
               <p className="header-kicker">Smart Infrastructure Intelligence</p>
               <h1>RoadLens</h1>

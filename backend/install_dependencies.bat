@@ -7,7 +7,8 @@ echo.
 echo [1/6] Checking Python...
 python --version
 if errorlevel 1 (
-    echo ERROR: Python not found! Please install Python 3.8+
+    echo ERROR: Python not found! Please install Python 3.10
+    echo Download from: https://www.python.org/downloads/release/python-3100/
     pause
     exit /b 1
 )

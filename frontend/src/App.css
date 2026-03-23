@@ -115,7 +115,20 @@ body {
 }
 
 .header-left {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.header-brand-logo {
+  width: clamp(46px, 5vw, 62px);
+  height: clamp(46px, 5vw, 62px);
+  border-radius: 14px;
+  object-fit: contain;
+  box-shadow: 0 8px 18px rgba(38, 48, 102, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.72);
+  flex-shrink: 0;
 }
 
 .header-kicker {
@@ -1511,5 +1524,18 @@ body {
   * {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-left {
+    align-items: flex-start;
+  }
+
+  .header-brand-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    margin-top: 0.08rem;
   }
 }
