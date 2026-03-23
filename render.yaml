@@ -3,9 +3,9 @@ services:
     name: roadlens-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300
-    healthCheckPath: /api/health
+    healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
@@ -22,7 +22,7 @@ services:
     name: roadlens-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --no-fund --no-audit && npm run build
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
