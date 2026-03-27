@@ -28,7 +28,7 @@ python -c "import torch; print('CUDA Available:', torch.cuda.is_available()); pr
 Expected output:
 ```
 CUDA Available: True
-GPU: NVIDIA GeForce GTX 1650
+GPU: YOUR_GPU_MODEL_NAME
 ```
 
 ### 3. Install GPU-Accelerated Dependencies
@@ -87,7 +87,7 @@ nvidia-smi -l 1
 Look for:
 - `python.exe` or `python` process using GPU memory
 - Non-zero `GPU-Util %` during inference
-- Expected VRAM usage: 2-4 GB for GTX 1650
+- Expected VRAM usage: 2-4 GB for YOUR_GPU_MODEL_NAME
 
 ### Check Health Endpoint
 
@@ -102,7 +102,7 @@ Response will show:
 {
   "status": "healthy",
   "device": "cuda:0",
-  "gpu_name": "NVIDIA GeForce GTX 1650",
+  "gpu_name": "YOUR_GPU_MODEL_NAME",
   "cuda_available": true,
   "cuda_version": "11.8"
 }
@@ -144,7 +144,7 @@ Response will show:
 
 ## Performance Benchmarks
 
-Typical inference times on **GTX 1650**:
+Typical inference times on **YOUR_GPU_MODEL_NAME**:
 
 | Task | Resolution | Time | Device |
 |------|-----------|------|--------|

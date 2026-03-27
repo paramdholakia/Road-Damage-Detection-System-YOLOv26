@@ -398,7 +398,7 @@ function App() {
             </div>
             <div className="header-badge premium-badge">
               <span>Engine</span>
-              <strong>Realtime AI Analysis</strong>
+              <strong>YOLOv26 Medium</strong>
             </div>
           </div>
         </div>

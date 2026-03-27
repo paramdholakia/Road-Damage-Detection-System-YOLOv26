@@ -362,6 +362,12 @@ def health_check():
         'timestamp_utc': datetime.utcnow().isoformat() + 'Z'
     })
 
+
+@app.route('/healthz', methods=['GET'])
+def healthz_check():
+    """Compatibility health endpoint for Render probes."""
+    return health_check()
+
 @app.errorhandler(413)
 def request_entity_too_large(_error):
     """Return a JSON payload when request size exceeds configured limit."""
